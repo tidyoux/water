@@ -7,37 +7,10 @@ import (
 	"log/slog"
 	"os"
 	"time"
-
-	openai "github.com/sashabaranov/go-openai"
-)
-
-const (
-	defaultOpenAIModel = "gpt-4o-mini"
-)
-
-const (
-	OPENAI_BASE_URL = "OPENAI_BASE_URL"
-	OPENAI_API_KEY  = "OPENAI_API_KEY"
-	OPENAI_MODEL    = "OPENAI_MODEL"
-)
-
-var (
-	openAIKey     = os.Getenv(OPENAI_API_KEY)
-	openAIBaseURL = os.Getenv(OPENAI_BASE_URL)
-	openAIModel   = os.Getenv(OPENAI_MODEL)
 )
 
 func main() {
 	// --- Configuration ---
-	if len(openAIKey) == 0 {
-		fmt.Println("Error: OPENAI_API_KEY environment variable is required")
-		os.Exit(1)
-	}
-
-	if openAIModel == "" {
-		openAIModel = defaultOpenAIModel
-	}
-
 	videoURL := flag.String("url", "", "YouTube video URL (required)")
 	outputDir := flag.String("output", "./output", "Directory for final processed video")
 	keepWorkDir := flag.Bool("keep-workdir", true, "Keep the temporary working directory after processing")
@@ -129,28 +102,17 @@ func processVideoPipeline(ctx context.Context, logger *slog.Logger, videoURL, ou
 		return "", fmt.Errorf("step 1: download video failed: %w", err)
 	}
 
-	// 3. Download Subtitles (Original Language)
-	originalSrtPath, err := downloadSubtitles(ctx, logger, videoID, workDir)
+	// 3. Download Subtitles
+	srtPath, err := downloadSubtitles(ctx, logger, videoID, workDir)
 	if err != nil {
 		// Consider if this should be a fatal error. Maybe the user wants the video even without subs?
 		// For this flow, we assume subtitles are required.
 		return "", fmt.Errorf("step 2: download subtitles failed: %w", err)
 	}
 
-	// 4. Translate Subtitles
-	cfg := openai.DefaultConfig(openAIKey)
-	if len(openAIBaseURL) > 0 {
-		cfg.BaseURL = openAIBaseURL
-	}
-	openaiClient := openai.NewClientWithConfig(cfg)
-	translatedSrtPath, err := translateSubtitles(ctx, logger, openaiClient, openAIModel, videoID, originalSrtPath, workDir)
-	if err != nil {
-		return "", fmt.Errorf("step 3: translate subtitles failed: %w", err)
-	}
-
-	// 5. Merge Video and Translated Subtitles
+	// 4. Merge Video and Subtitles
 	// Place the final merged file directly into the user-specified outputBaseDir
-	finalVideoPath, err := mergeVideoSubtitles(ctx, logger, videoPath, translatedSrtPath, outputBaseDir, videoID)
+	finalVideoPath, err := mergeVideoSubtitles(ctx, logger, videoPath, srtPath, outputBaseDir, videoID)
 	if err != nil {
 		return "", fmt.Errorf("step 4: merge video and subtitles failed: %w", err)
 	}
