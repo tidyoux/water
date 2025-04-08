@@ -31,7 +31,7 @@ func mergeVideoSubtitles(ctx context.Context, logger *slog.Logger, videoPath, su
 	args := []string{
 		"-i", videoPath,
 		"-c:a", "copy", // Copy audio stream without re-encoding
-		"-vf", fmt.Sprintf("subtitles=%s:force_style='FontSize=16,Alignment=2'", subtitlePath), // Burn subtitles into video
+		"-vf", fmt.Sprintf("subtitles=%s:force_style='FontSize=18,Alignment=2'", subtitlePath), // Burn subtitles into video
 		"-y", // Overwrite output
 		finalOutputPath,
 	}
