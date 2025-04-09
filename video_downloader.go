@@ -15,9 +15,31 @@ const (
 	videoFormat = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" // Prioritize mp4 container
 )
 
+// getYoutubeVideoID extracts the video ID using yt-dlp.
+func getYoutubeVideoID(logger *slog.Logger, rawURL string) (string, error) {
+	// Ensure yt-dlp exists
+	if err := checkExecutable(logger, ytDlpExecutable); err != nil {
+		return "", err
+	}
+
+	// Run yt-dlp to get video ID
+	output, err := runCommand(context.Background(), logger, ytDlpExecutable, "--get-id", rawURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract video ID: %w", err)
+	}
+
+	// Trim whitespace and newlines from output
+	videoID := strings.TrimSpace(string(output))
+	if videoID == "" {
+		return "", fmt.Errorf("could not extract video ID from URL: %s", rawURL)
+	}
+
+	return videoID, nil
+}
+
 // downloadVideo uses yt-dlp to download the best quality video and audio.
 // It returns the path to the downloaded video file.
-func downloadVideo(ctx context.Context, logger *slog.Logger, url, workDir string) (string, error) {
+func downloadVideo(ctx context.Context, logger *slog.Logger, videoID, url, workDir string) (string, error) {
 	logger = logger.With("step", "downloadVideo", "url", url)
 	logger.Info("Starting video download")
 
@@ -27,13 +49,6 @@ func downloadVideo(ctx context.Context, logger *slog.Logger, url, workDir string
 	}
 
 	// Define output template: videoID.ext (yt-dlp figures out the extension)
-	// We need the video ID to predict the filename.
-	videoID, err := getYoutubeVideoID(url)
-	if err != nil {
-		logger.Error("Failed to get video ID for filename prediction", "error", err)
-		// Fallback or error out - let's error out for predictability
-		return "", fmt.Errorf("cannot determine video ID from URL '%s' for download: %w", url, err)
-	}
 	outputTemplate := filepath.Join(workDir, fmt.Sprintf("%s.%%(ext)s", videoID)) // yt-dlp replaces %(ext)s
 
 	// Build yt-dlp command arguments

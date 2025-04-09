@@ -65,10 +65,11 @@ func processVideoPipeline(ctx context.Context, logger *slog.Logger, videoURL, ou
 	startTime := time.Now()
 
 	// 1. Get Video ID and create working directory
-	videoID, err := getYoutubeVideoID(videoURL)
+	videoID, err := getYoutubeVideoID(logger, videoURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract video ID: %w", err)
 	}
+
 	logger = logger.With("videoID", videoID) // Add videoID to all subsequent logs
 	logger.Info("Extracted video ID")
 
@@ -97,7 +98,7 @@ func processVideoPipeline(ctx context.Context, logger *slog.Logger, videoURL, ou
 	}
 
 	// 2. Download Video
-	videoPath, err := downloadVideo(ctx, logger, videoURL, workDir)
+	videoPath, err := downloadVideo(ctx, logger, videoID, videoURL, workDir)
 	if err != nil {
 		return "", fmt.Errorf("step 1: download video failed: %w", err)
 	}

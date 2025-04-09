@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,37 +51,6 @@ func checkExecutable(logger *slog.Logger, name string) error {
 	}
 	logger.Debug("Executable found", "name", name, "path", path)
 	return nil
-}
-
-// getYoutubeVideoID extracts the video ID from various YouTube URL formats.
-func getYoutubeVideoID(rawURL string) (string, error) {
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse URL '%s': %w", rawURL, err)
-	}
-
-	// Standard youtube.com format (youtube.com/watch?v=VIDEO_ID)
-	if strings.Contains(parsedURL.Host, "youtube.com") {
-		videoID := parsedURL.Query().Get("v")
-		if videoID != "" {
-			return videoID, nil
-		}
-	}
-
-	// Shortened youtu.be format (youtu.be/VIDEO_ID)
-	if strings.Contains(parsedURL.Host, "youtu.be") {
-		videoID := strings.TrimPrefix(parsedURL.Path, "/")
-		if videoID != "" {
-			// Remove potential query params like ?t=...
-			if idx := strings.Index(videoID, "?"); idx != -1 {
-				videoID = videoID[:idx]
-			}
-			return videoID, nil
-		}
-	}
-
-	// Handle other potential formats or return error
-	return "", fmt.Errorf("could not extract video ID from URL: %s", rawURL)
 }
 
 // getWorkDir creates a unique working directory for processing a video.
