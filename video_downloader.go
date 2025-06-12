@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,25 +16,39 @@ const (
 	videoFormat = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" // Prioritize mp4 container
 )
 
-// getYoutubeVideoID extracts the video ID using yt-dlp.
+// getYoutubeVideoID extracts the video ID from rawURL.
 func getYoutubeVideoID(logger *slog.Logger, rawURL string) (string, error) {
-	// Ensure yt-dlp exists
-	if err := checkExecutable(logger, ytDlpExecutable); err != nil {
-		return "", err
-	}
+	logger = logger.With("step", "getYoutubeVideoID", "url", rawURL)
 
-	// Run yt-dlp to get video ID
-	output, err := runCommand(context.Background(), logger, ytDlpExecutable, "--get-id", rawURL)
+	// Parse the URL
+	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return "", fmt.Errorf("failed to extract video ID: %w", err)
+		return "", fmt.Errorf("failed to parse URL: %w", err)
 	}
 
-	// Trim whitespace and newlines from output
-	videoID := strings.TrimSpace(string(output))
+	// Check if it's a YouTube URL
+	if !strings.Contains(parsedURL.Host, "youtube.com") && !strings.Contains(parsedURL.Host, "youtu.be") {
+		return "", fmt.Errorf("not a YouTube URL: %s", rawURL)
+	}
+
+	// Handle youtu.be short URLs
+	if strings.Contains(parsedURL.Host, "youtu.be") {
+		// youtu.be URLs have the video ID in the path
+		videoID := strings.TrimPrefix(parsedURL.Path, "/")
+		if videoID == "" {
+			return "", fmt.Errorf("no video ID found in youtu.be URL: %s", rawURL)
+		}
+		return videoID, nil
+	}
+
+	// Handle standard youtube.com URLs
+	queryParams := parsedURL.Query()
+	videoID := queryParams.Get("v")
 	if videoID == "" {
-		return "", fmt.Errorf("could not extract video ID from URL: %s", rawURL)
+		return "", fmt.Errorf("no video ID found in URL: %s", rawURL)
 	}
 
+	logger.Info("Successfully extracted video ID", "videoID", videoID)
 	return videoID, nil
 }
 
