@@ -30,6 +30,8 @@ func mergeVideoSubtitles(ctx context.Context, logger *slog.Logger, videoPath, su
 	// Build ffmpeg command arguments
 	args := []string{
 		"-i", videoPath,
+		"-c:v", "h264_videotoolbox", // Use h264_videotoolbox for faster encoding
+		"-b:v", "2000k", // Set video bitrate to 2000 kbps
 		"-c:a", "copy", // Copy audio stream without re-encoding
 		"-vf", fmt.Sprintf("subtitles=%s:force_style='FontSize=18,Alignment=2'", subtitlePath), // Burn subtitles into video
 		"-y", // Overwrite output
@@ -45,7 +47,9 @@ func mergeVideoSubtitles(ctx context.Context, logger *slog.Logger, videoPath, su
 		// Simplified args without subtitle if SRT is empty
 		args = []string{
 			"-i", videoPath,
-			"-c", "copy", // Copy existing streams without re-encoding
+			"-c:v", "h264_videotoolbox", // Use h264_videotoolbox for faster encoding
+			"-b:v", "2000k",
+			"-c:a", "copy",
 			"-y",
 			finalOutputPath,
 		}
