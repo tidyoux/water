@@ -14,6 +14,9 @@ const (
 	ytDlpExecutable = "yt-dlp"
 
 	videoFormat = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" // Prioritize mp4 container
+
+	subtitleLang   = "zh-Hans"
+	subtitleFormat = "srt"
 )
 
 // getYoutubeVideoID extracts the video ID from rawURL.
@@ -54,13 +57,13 @@ func getYoutubeVideoID(logger *slog.Logger, rawURL string) (string, error) {
 
 // downloadVideo uses yt-dlp to download the best quality video and audio.
 // It returns the path to the downloaded video file.
-func downloadVideo(ctx context.Context, logger *slog.Logger, videoID, url, workDir string) (string, error) {
+func downloadVideo(ctx context.Context, logger *slog.Logger, videoID, url, workDir string) (string, string, error) {
 	logger = logger.With("step", "downloadVideo", "url", url)
 	logger.Info("Starting video download")
 
 	// Ensure yt-dlp exists
 	if err := checkExecutable(logger, ytDlpExecutable); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Define output template: videoID.ext (yt-dlp figures out the extension)
@@ -71,16 +74,20 @@ func downloadVideo(ctx context.Context, logger *slog.Logger, videoID, url, workD
 		"-f", videoFormat, // Select best mp4 video and audio, fallback to best overall
 		"--merge-output-format", "mp4", // Ensure the final container is mp4
 		"-o", outputTemplate, // Output filename template
-		"--no-playlist", // Only download single video if URL is part of a playlist
-		"--progress",    // Show progress
-		"--no-warnings", // Suppress some common warnings
+		"--no-playlist",             // Only download single video if URL is part of a playlist
+		"--progress",                // Show progress
+		"--no-warnings",             // Suppress some common warnings
+		"--write-subs",              // Download subtitles if available
+		"--write-auto-subs",         // Download auto-generated subtitles if available
+		"--sub-langs", subtitleLang, // Specify subtitle language (Chinese Simplified)
+		"--sub-format", subtitleFormat, // Use SRT format for subtitles
 		// "--verbose",     // Uncomment for debugging yt-dlp issues
 		url, // The video URL
 	}
 
 	// Execute the command
 	if _, err := runCommand(ctx, logger, ytDlpExecutable, args...); err != nil {
-		return "", fmt.Errorf("yt-dlp execution failed: %w", err)
+		return "", "", fmt.Errorf("yt-dlp execution failed: %w", err)
 	}
 
 	// --- Predict the output filename ---
@@ -89,6 +96,7 @@ func downloadVideo(ctx context.Context, logger *slog.Logger, videoID, url, workD
 	// A more robust way would be to parse yt-dlp's output if it reliably prints the filename,
 	// or list the directory contents.
 	expectedFilePath := filepath.Join(workDir, videoID+".mp4")
+	expectedSubtitlePath := filepath.Join(workDir, fmt.Sprintf("%s.%s.%s", videoID, subtitleLang, subtitleFormat))
 
 	// Basic check if the expected file exists
 	if _, err := os.Stat(expectedFilePath); err != nil {
@@ -97,7 +105,7 @@ func downloadVideo(ctx context.Context, logger *slog.Logger, videoID, url, workD
 		files, findErr := filepath.Glob(filepath.Join(workDir, videoID+".*"))
 		if findErr != nil || len(files) == 0 {
 			logger.Error("Could not find downloaded video file", "pattern", filepath.Join(workDir, videoID+".*"), "stat_error", err, "find_error", findErr)
-			return "", fmt.Errorf("download command seemed successful, but couldn't locate output video file matching pattern %s.*", videoID)
+			return "", "", fmt.Errorf("download command seemed successful, but couldn't locate output video file matching pattern %s.*", videoID)
 		}
 		// Filter out subtitle files etc. if necessary
 		for _, f := range files {
@@ -112,11 +120,11 @@ func downloadVideo(ctx context.Context, logger *slog.Logger, videoID, url, workD
 		// Re-check if we found a suitable file
 		if _, err := os.Stat(expectedFilePath); err != nil {
 			logger.Error("Still could not confirm downloaded video file path", "last_attempt", expectedFilePath)
-			return "", fmt.Errorf("failed to confirm downloaded video file path after searching")
+			return "", "", fmt.Errorf("failed to confirm downloaded video file path after searching")
 		}
 	} else {
 		logger.Info("Confirmed downloaded video file", "path", expectedFilePath)
 	}
 
-	return expectedFilePath, nil
+	return expectedFilePath, expectedSubtitlePath, nil
 }

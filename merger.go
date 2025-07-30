@@ -24,7 +24,7 @@ func mergeVideoSubtitles(ctx context.Context, logger *slog.Logger, videoPath, su
 
 	// Define the final output path
 	// Ensure output directory exists (should be created by getWorkDir or main)
-	finalFileName := fmt.Sprintf("%s_final_with_%s_subs.mp4", videoID, targetLang)
+	finalFileName := fmt.Sprintf("%s_final_with_%s_subs.mp4", videoID, subtitleLang)
 	finalOutputPath := filepath.Join(outputDir, finalFileName) // Place final output directly in the specified output dir
 
 	// Build ffmpeg command arguments

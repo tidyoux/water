@@ -4,8 +4,7 @@ Water 是一个视频处理工具，主要用于下载视频并进行字幕处�
 
 ## 功能特点
 
-- 使用 yt-dlp 下载 youtube 最佳质量视频
-- 使用 youtube_transcript_api 下载视频中文字幕
+- 使用 yt-dlp 下载 youtube 最佳质量视频和中文字幕
 - 使用 ffmpeg 将视频和字幕合并
 
 ## 快速开始

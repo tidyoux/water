@@ -97,21 +97,13 @@ func processVideoPipeline(ctx context.Context, logger *slog.Logger, videoURL, ou
 		logger.Info("Keeping working directory as requested", "path", workDir)
 	}
 
-	// 2. Download Video
-	videoPath, err := downloadVideo(ctx, logger, videoID, videoURL, workDir)
+	// 2. Download Video and Subtitles
+	videoPath, srtPath, err := downloadVideo(ctx, logger, videoID, videoURL, workDir)
 	if err != nil {
 		return "", fmt.Errorf("step 1: download video failed: %w", err)
 	}
 
-	// 3. Download Subtitles
-	srtPath, err := downloadSubtitles(ctx, logger, videoID, workDir)
-	if err != nil {
-		// Consider if this should be a fatal error. Maybe the user wants the video even without subs?
-		// For this flow, we assume subtitles are required.
-		return "", fmt.Errorf("step 2: download subtitles failed: %w", err)
-	}
-
-	// 4. Merge Video and Subtitles
+	// 3. Merge Video and Subtitles
 	// Place the final merged file directly into the user-specified outputBaseDir
 	finalVideoPath, err := mergeVideoSubtitles(ctx, logger, videoPath, srtPath, outputBaseDir, videoID)
 	if err != nil {
